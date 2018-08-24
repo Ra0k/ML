@@ -1,26 +1,26 @@
 import numpy as np
 
 class MatrixFactorization(object):
-    def __init__(self, data, k):
+    def __init__(self, data, K):
         '''
         Arguments:
         - data    : 2 dimensional rating matrix
-        - k       : number of latent dimensions
+        - K       : number of latent dimensions
         '''
         
         self.R = np.matrix(data)
         self.D = np.zeros( self.R.shape )
-        self.k = k
+        self.K = K
         
-        self.U = 2*(np.random.uniform( size=(self.R.shape[0], k) )-.5)
-        self.P = 2*(np.random.uniform( size=(k, self.R.shape[1]) )-.5)
+        self.U = np.random.uniform( size=(self.R.shape[0], K) )
+        self.P = np.random.uniform( size=(K, self.R.shape[1]) )
     
     def _compure_error(self):
         self.D = (self.R - self.estimate_all())
         
         return self.D
     
-    def train(self, alpha=0.1, beta=0.01, iterations=1000):
+    def train(self, alpha=0.1, beta=0.02, iterations=1000):
         '''
         Arguments:
         - alpha   : learning-rate 
@@ -35,13 +35,19 @@ class MatrixFactorization(object):
             
             for i in range(self.R.shape[0]):      
                 for j in range(self.R.shape[1]):
-                    for k in range(self.k):
-                        ik = (alpha/self.k) * P[k, j] * self.D[i, j] 
-                        kj = (alpha/self.k) * U[i, k] * self.D[i, j]
-                        if not np.isnan(ik):
+                    for k in range(self.K):
+                        ik = alpha * ( P[k, j] * self.D[i, j] + beta * U[i, k])
+                        kj = alpha * ( U[i, k] * self.D[i, j] + beta * P[k, j])
+                        if np.isfinite(ik):
                             self.U[i, k] += ik
-                        if not np.isnan(kj):
+                        if np.isfinite(kj):
                             self.P[k, j] += kj
+            
+            #non-negativity
+            self.U = self.U.clip(min=0)
+            self.P = self.P.clip(min=0)
+            
+        return np.nansum(np.nansum(abs(self._compure_error())))
     
     def estimate_all(self):
         return self.U.dot(self.P)
